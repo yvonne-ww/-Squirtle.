@@ -1,10 +1,10 @@
 /* ============================================================
  *  合成大奶娃 · Suika Game
- *  纯原生 HTML + CSS + JavaScript，无任何依赖。
+ *  純原生 HTML + CSS + JavaScript，無任何依賴。
  *
- *  物理：PBD（位置约束求解）—— 3 个子步 × 6 次迭代，
- *        静止堆叠稳定，不抖动。
- *  玩法：相同水果接触即合成高一级水果；顶到警戒线超时判负。
+ *  物理：PBD（位置約束求解）—— 3 個子步 × 6 次迭代，
+ *        靜止堆疊穩定，不抖動。
+ *  玩法：相同水果接觸即合成高一級水果；頂到警戒線超時判負。
  * ============================================================ */
 (function () {
   'use strict';
@@ -27,7 +27,7 @@
   const MAX_BONUS = 500;
   const MAX_MERGE_GIVES_REVIVE = true;
   const FREEZE_MS = 130;
-  const REVIVE_STEP = 2000;
+  const REVIVE_STEP = 500;
   const MERGE_PAD = 0.8;
 
   const RESTITUTION      = 0.38;
@@ -542,7 +542,7 @@
     }
     if (!got) return;
     paintRevives(true);
-    state.floats.push({ x: W / 2, y: 210, text: '+1 复活币', life: 1.4, big: true });
+    state.floats.push({ x: W / 2, y: 210, text: '+1 復活幣', life: 1.4, big: true });
     Sound.merge(6);
   }
 
@@ -629,7 +629,7 @@
 
   function askRevive() {
     if (reviveScoreEl) reviveScoreEl.textContent = state.score;
-    if (reviveLeftEl) reviveLeftEl.textContent = '还剩 ' + state.revives + ' 枚';
+    if (reviveLeftEl) reviveLeftEl.textContent = '還剩 ' + state.revives + ' 枚';
     if (revivePromptEl) revivePromptEl.hidden = false;
     if (overPanelEl) overPanelEl.hidden = true;
     if (overlayEl) overlayEl.classList.add('show');
@@ -961,7 +961,7 @@
     ctx.textAlign = 'right';
     ctx.textBaseline = 'middle';
     ctx.fillStyle = 'rgba(150,110,80,.85)';
-    ctx.fillText('下一个', x - r - 10, y);
+    ctx.fillText('下一個', x - r - 10, y);
     ctx.restore();
 
     drawFruit(ctx, x, y, r, tier, 0, 1);
@@ -1127,7 +1127,7 @@
     const ico = soundBtn.querySelector('.ico');
     const lbl = soundBtn.querySelector('.lbl');
     if (ico) ico.textContent = Sound.muted ? '🔇' : '🔊';
-    if (lbl) lbl.textContent = Sound.muted ? '音效关' : '音效开';
+    if (lbl) lbl.textContent = Sound.muted ? '音效關' : '音效開';
     soundBtn.setAttribute('aria-pressed', String(!Sound.muted));
   }
 
@@ -1171,7 +1171,7 @@
           return;
         }
         left--;
-        if (window.console) console.warn('[danaiwa] 素材载入失败，已回退为程序化水果：' + f.file);
+        if (window.console) console.warn('[danaiwa] 素材載入失敗，已回退為程式化水果：' + f.file);
         if (left === 0) refreshPreviews();
       };
       img.src = attempt > 1 ? (f.file + '?retry=' + attempt) : f.file;
