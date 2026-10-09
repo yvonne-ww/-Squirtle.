@@ -9,85 +9,67 @@
 (function () {
   'use strict';
 
-  /* ---------------------------------------------------------
-   *  常量
-   * ------------------------------------------------------- */
+  const W = 420;
+  const H = 700;
+  const WALL = 10;
+  const DROP_Y = 74;
+  const DANGER_Y = 142;
 
-  const W = 420;             // 逻辑宽度
-  const H = 700;             // 逻辑高度
-  const WALL = 10;           // 左右墙厚
-  const DROP_Y = 74;         // 待投放水果的高度
-  const DANGER_Y = 142;      // 警戒线
-
-  const GRAVITY   = 2600;    // px/s²
-  const SUBSTEPS  = 3;       // 每帧物理子步
-  const ITER      = 6;       // 每个子步的约束迭代次数
-  const DROP_MS   = 360;     // 两次投放的最小间隔
-  const OVER_LIMIT = 1.5;    // 越线持续多少秒判负
-  const REST_SPEED = 140;    // 线上方且速度低于它才算“卡住”（被弹飞路过的不算）
+  const GRAVITY   = 2600;
+  const SUBSTEPS  = 3;
+  const ITER      = 6;
+  const DROP_MS   = 360;
+  const OVER_LIMIT = 1.5;
+  const REST_SPEED = 140;
   const REST_SPEED2 = REST_SPEED * REST_SPEED;
 
-  const MAX_TIER  = 10;      // 最大那只（神奶蛙）的索引
-  const MAX_BONUS = 500;     // 两只神奶蛙相撞的奖励分
-                             // （原来是 100 —— 合出全游戏最难的东西只给 100 分，太寒酸；
-                             //  而且它同时清掉两块最大的水果、相当于救一条命，值这个价）
-  const MAX_MERGE_GIVES_REVIVE = true;  // 两只神奶蛙一起炸掉时，额外送一枚复活币
-  const FREEZE_MS = 130;     // 清场时的定格，让这一下有重量
-  const REVIVE_STEP = 2000;  // 每累计多少分，发一枚复活币
-  const MERGE_PAD = 0.8;     // 合成判定的接触容差（px）
+  const MAX_TIER  = 10;
+  const MAX_BONUS = 500;
+  const MAX_MERGE_GIVES_REVIVE = true;
+  const FREEZE_MS = 130;
+  const REVIVE_STEP = 2000;
+  const MERGE_PAD = 0.8;
 
-  /* —— Q 弹手感 —— */
-  const RESTITUTION      = 0.38;  // 球与球之间的弹性
-  const WALL_RESTITUTION = 0.45;  // 撞墙 / 撞地面的弹性
-  const REST_THRESHOLD   = 55;    // 撞击速度低于此值不反弹（保证堆叠稳、不抖）
-  const FRICTION         = 0.955; // 接触时的切向摩擦（每个子步）
-  const SQUASH_DECAY     = 9;     // 挤压回弹速度
-  const SQUASH_MAX       = 0.30;  // 最大挤压变形
+  const RESTITUTION      = 0.38;
+  const WALL_RESTITUTION = 0.45;
+  const REST_THRESHOLD   = 55;
+  const FRICTION         = 0.955;
+  const SQUASH_DECAY     = 9;
+  const SQUASH_MAX       = 0.30;
 
-  /* 水果链：索引越大越大
-     file : assets/fruits/ 下的贴图（由 tools/normalize_assets.py 统一生成）
-     c1/c2: 贴图缺失时的程序化水果配色
-     pc1/pc2: 粒子/汁水的颜色（取自贴图主体平均色） */
-  const ASSET_FILL = 0.92;   // 贴图里主体占画布长边的比例，与生成脚本保持一致
+  const ASSET_FILL = 0.92;
 
   const FRUITS = [
-    { name: '葡萄',   r: 17,  c1: '#c084f5', c2: '#7a3fb0', line: 'rgba(74,26,120,.35)',
-      file: 'assets/fruits/01-grape.webp',     pc1: '#e9c466', pc2: '#b8903a' },
-    { name: '樱桃',   r: 23,  c1: '#ff8a99', c2: '#c62346', line: 'rgba(120,10,40,.35)',
-      file: 'assets/fruits/02-cherry.webp',    pc1: '#ffe684', pc2: '#d8b44f' },
-    { name: '橘子',   r: 31,  c1: '#ffc06a', c2: '#e0741a', line: 'rgba(140,62,0,.32)',
-      file: 'assets/fruits/03-orange.webp',    pc1: '#fdd865', pc2: '#cfa63f' },
-    { name: '柠檬',   r: 39,  c1: '#fff285', c2: '#e0b000', line: 'rgba(140,110,0,.32)',
-      file: 'assets/fruits/04-lemon.webp',     pc1: '#f6cd63', pc2: '#c9a040' },
-    { name: '猕猴桃', r: 48,  c1: '#b9e05a', c2: '#5d8c1c', line: 'rgba(60,90,10,.32)',
-      file: 'assets/fruits/05-kiwi.webp',      pc1: '#c4a559', pc2: '#94793c' },
-    { name: '番茄',   r: 58,  c1: '#ff8a66', c2: '#c62f28', line: 'rgba(120,20,10,.32)',
-      file: 'assets/fruits/06-tomato.webp',    pc1: '#fbd75a', pc2: '#cba63c' },
-    { name: '桃子',   r: 69,  c1: '#ffd0d0', c2: '#ea7f93', line: 'rgba(160,60,80,.3)',
-      file: 'assets/fruits/07-peach.webp',     pc1: '#f7c45a', pc2: '#c99a3e' },
-    { name: '菠萝',   r: 81,  c1: '#ffe07a', c2: '#c88a12', line: 'rgba(130,80,0,.32)',
-      file: 'assets/fruits/08-pineapple.webp', pc1: '#ffd37b', pc2: '#d1a252' },
-    { name: '椰子',   r: 94,  c1: '#f0e2c6', c2: '#9b7b4f', line: 'rgba(90,64,32,.35)',
-      file: 'assets/fruits/09-coconut.webp',   pc1: '#ffd771', pc2: '#d3a94e' },
-    { name: '半奶蛙', r: 108, c1: '#ff9d78', c2: '#c23a2c', line: 'rgba(120,24,16,.32)',
-      file: 'assets/fruits/10-halfmelon.webp', pc1: '#ccab68', pc2: '#9c8047' },
-    { name: '神奶蛙', r: 124, c1: '#7ce878', c2: '#1c8a33', line: 'rgba(12,70,24,.4)',
-      file: 'assets/fruits/11-watermelon.webp', pc1: '#eece9b', pc2: '#c0a271' }
+    { name: '角色 1',   r: 17,  c1: '#dbeafe', c2: '#60a5fa', line: 'rgba(59,130,246,.35)',
+      file: '01-grape.png',     pc1: '#dff6ff', pc2: '#7dd3fc' },
+    { name: '角色 2',   r: 23,  c1: '#dbeafe', c2: '#60a5fa', line: 'rgba(59,130,246,.35)',
+      file: '02-cherry.png',    pc1: '#e0f2fe', pc2: '#7dd3fc' },
+    { name: '角色 3',   r: 31,  c1: '#dbeafe', c2: '#60a5fa', line: 'rgba(59,130,246,.35)',
+      file: '03-orange.png',    pc1: '#dbeafe', pc2: '#7dd3fc' },
+    { name: '角色 4',   r: 39,  c1: '#dbeafe', c2: '#60a5fa', line: 'rgba(59,130,246,.35)',
+      file: '04-lemon.png',     pc1: '#dbeafe', pc2: '#7dd3fc' },
+    { name: '角色 5',   r: 48,  c1: '#dbeafe', c2: '#60a5fa', line: 'rgba(59,130,246,.35)',
+      file: '05-kiwi.png',      pc1: '#dbeafe', pc2: '#7dd3fc' },
+    { name: '角色 6',   r: 58,  c1: '#dbeafe', c2: '#60a5fa', line: 'rgba(59,130,246,.35)',
+      file: '06-tomato.png',    pc1: '#dbeafe', pc2: '#7dd3fc' },
+    { name: '角色 7',   r: 69,  c1: '#dbeafe', c2: '#60a5fa', line: 'rgba(59,130,246,.35)',
+      file: '07-peach.png',     pc1: '#dbeafe', pc2: '#7dd3fc' },
+    { name: '角色 8',   r: 81,  c1: '#dbeafe', c2: '#60a5fa', line: 'rgba(59,130,246,.35)',
+      file: '08-pineapple.png', pc1: '#dbeafe', pc2: '#7dd3fc' },
+    { name: '角色 9',   r: 94,  c1: '#dbeafe', c2: '#60a5fa', line: 'rgba(59,130,246,.35)',
+      file: '09-coconut.png',   pc1: '#dbeafe', pc2: '#7dd3fc' },
+    { name: '小傑尼龜', r: 108, c1: '#bae6fd', c2: '#38bdf8', line: 'rgba(14,116,144,.32)',
+      file: '10-halfmelon.png', pc1: '#e0f2fe', pc2: '#7dd3fc' },
+    { name: '傑尼龜',   r: 124, c1: '#dffcff', c2: '#2c93d0', line: 'rgba(18,90,130,.4)',
+      file: '11-watermelon.png', pc1: '#d4f5ff', pc2: '#8ecbe9' }
   ];
 
-  /* 合成出 tier 的得分（三角数） */
   const MERGE_SCORE = [0, 1, 3, 6, 10, 15, 21, 28, 36, 45, 55];
-
-  /* 新水果的掉落权重（越小越常见） */
   const SPAWN_TIERS = [0, 1, 2, 3, 4];
   const SPAWN_WEIGHTS = [0.28, 0.24, 0.20, 0.16, 0.12];
 
   const BEST_KEY = 'danaiwa.best.v1';
   const MUTE_KEY = 'danaiwa.mute.v1';
-
-  /* ---------------------------------------------------------
-   *  DOM
-   * ------------------------------------------------------- */
 
   const canvas    = document.getElementById('game');
   const ctx       = canvas.getContext('2d');
@@ -113,16 +95,8 @@
   const reviveBadge    = document.getElementById('reviveBadge');
   const reviveCountEl  = document.getElementById('reviveCount');
 
-  /* ---------------------------------------------------------
-   *  工具
-   * ------------------------------------------------------- */
-
   const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
   const rand  = (a, b) => a + Math.random() * (b - a);
-
-  /* 「下一个」是否允许和当前这颗相同。
-     允许的话有约 22% 概率两边显示同一张图，看起来像“下一个显示的是当前这个”，
-     所以默认避开；想恢复成完全随机就把它改成 false */
   const AVOID_REPEAT = true;
 
   function rollSpawnTier() {
@@ -140,12 +114,8 @@
       const t = rollSpawnTier();
       if (t !== avoid) return t;
     }
-    return rollSpawnTier();     // 兜底：万一连撞 6 次就认了
+    return rollSpawnTier();
   }
-
-  /* ---------------------------------------------------------
-   *  音效（WebAudio，无外部资源）
-   * ------------------------------------------------------- */
 
   const Sound = {
     ctx: null,
@@ -192,17 +162,12 @@
     bonus()  { [523, 659, 784, 1047].forEach((f, i) => setTimeout(() => this.tone(f, f, 0.22, 0.12, 'triangle'), i * 90)); }
   };
 
-  /* 手机上的轻微震动反馈（跟着静音开关走；不支持的浏览器自动忽略） */
   function haptic(ms) {
     if (Sound.muted) return;
     if (navigator.vibrate) {
-      try { navigator.vibrate(ms); } catch (e) { /* 忽略 */ }
+      try { navigator.vibrate(ms); } catch (e) { }
     }
   }
-
-  /* ---------------------------------------------------------
-   *  画布尺寸
-   * ------------------------------------------------------- */
 
   const view = { scale: 1, dpr: 1 };
 
@@ -215,10 +180,6 @@
     view.dpr = dpr;
     view.scale = (rect.width * dpr) / W;
   }
-
-  /* ---------------------------------------------------------
-   *  游戏状态
-   * ------------------------------------------------------- */
 
   const state = {
     balls: [],
@@ -233,17 +194,10 @@
     aimX: W / 2,
     over: false,
     flash: 0,
-    revives: 0,        // 本局还剩几枚复活币（重开清零）
-    reviveGiven: 0,    // 本局已经发放过几次（用来判断跨过新的 2000 分）
-    freeze: 0          // 命中定格剩余秒数
+    revives: 0,
+    reviveGiven: 0,
+    freeze: 0
   };
-
-  /* ---------------------------------------------------------
-   *  碰撞形状（按图片轮廓生成，不是圆形）
-   *  assets/fruits/parts.js 由 tools/build_parts.py 从贴图的 alpha 轮廓算出：
-   *  parts = [[ox, oy, s], ...] 单位是「以 r 为 1」，rb = 碰撞包围圆半径。
-   *  没有数据时退化成单个半径 r 的圆，和老版本行为一致。
-   * ------------------------------------------------------- */
 
   const SHAPES = (typeof window !== 'undefined' && window.SUIKA_PARTS) || [];
   const UNIT_SHAPE = { rb: 1, parts: [[0, 0, 1]] };
@@ -254,7 +208,6 @@
     return UNIT_SHAPE;
   }
 
-  /* 把局部小圆换算到世界坐标（跟着刚体一起旋转平移） */
   function syncParts(b) {
     const c = Math.cos(b.angle), s = Math.sin(b.angle);
     const parts = b.parts, r = b.r;
@@ -283,11 +236,11 @@
       landed: false,
       dead: false,
       contacts: 0,
-      pvx: 0, pvy: 0,          // 本子步求解前的速度（用于弹性冲量）
-      sq: 0, sqA: 0,           // 挤压变形量 / 变形轴角度
+      pvx: 0, pvy: 0,
+      sq: 0, sqA: 0,
       parts: sh.parts,
-      rb: sh.rb * r,           // 包围圆半径（粗筛用）
-      wx: new Float32Array(n), // 世界坐标下的子圆
+      rb: sh.rb * r,
+      wx: new Float32Array(n),
       wy: new Float32Array(n),
       ws: new Float32Array(n)
     };
@@ -295,22 +248,17 @@
     return ball;
   }
 
-  /* ---------------------------------------------------------
-   *  物理
-   * ------------------------------------------------------- */
-
   function stepPhysics(dt) {
     const balls = state.balls;
     const merges = [];
-    const contacts = [];      // 本子步的接触列表，用于弹性冲量
+    const contacts = [];
 
-    /* --- 积分 --- */
     for (let i = 0; i < balls.length; i++) {
       const b = balls[i];
       b.px = b.x;
       b.py = b.y;
       b.vy += GRAVITY * dt;
-      b.pvx = b.vx;           // 求解前速度：弹性冲量用它来算，避免被约束“吃掉”
+      b.pvx = b.vx;
       b.pvy = b.vy;
       b.x += b.vx * dt;
       b.y += b.vy * dt;
@@ -318,10 +266,7 @@
       syncParts(b);
     }
 
-    /* --- 约束求解 --- */
     for (let it = 0; it < ITER; it++) {
-
-      /* 墙 & 地面：每个子圆各自贴墙，推力累加到刚体中心上（一次到位） */
       for (let i = 0; i < balls.length; i++) {
         const b = balls[i];
         if (b.dead) continue;
@@ -352,7 +297,6 @@
         }
       }
 
-      /* 球球：子圆两两求交，取“最接近/最深”的那一对做修正 */
       for (let i = 0; i < balls.length; i++) {
         const a = balls[i];
         if (a.dead) continue;
@@ -360,20 +304,17 @@
           const b = balls[j];
           if (b.dead || a.dead) continue;
 
-          /* 包围圆粗筛 */
           const cdx = b.x - a.x, cdy = b.y - a.y;
           const rbSum = a.rb + b.rb;
           if (cdx * cdx + cdy * cdy >= rbSum * rbSum) continue;
 
           const pa = a.parts.length, pb = b.parts.length;
-          const brb = b.rb, arb = a.rb;
           let minGap = 1e9, bnx = 0, bny = 0;
 
           for (let m = 0; m < pa; m++) {
             const ax = a.wx[m], ay = a.wy[m], ar = a.ws[m];
-            /* 小圆离对方中心太远就整组跳过 */
             const ddx = b.x - ax, ddy = b.y - ay;
-            const far = brb + ar;
+            const far = b.rb + ar;
             if (ddx * ddx + ddy * ddy >= far * far) continue;
 
             for (let k = 0; k < pb; k++) {
@@ -401,7 +342,7 @@
             continue;
           }
 
-          if (minGap >= 0) continue;            // 只是挨着，不用推开
+          if (minGap >= 0) continue;
           if (it === 0) contacts.push({ a: a, b: b, nx: bnx, ny: bny });
           const corr = Math.min(-minGap - 0.05, 4) * 0.9;
           if (corr <= 0) continue;
@@ -420,7 +361,6 @@
       }
     }
 
-    /* --- 收尾墙约束：球球分离可能把水果顶出墙外，最后再夹一次 --- */
     for (let i = 0; i < balls.length; i++) {
       const b = balls[i];
       if (b.dead) continue;
@@ -440,7 +380,6 @@
       }
     }
 
-    /* --- 由位置差反推速度（PBD）+ 摩擦 + 滚动 --- */
     const invDt = 1 / dt;
     for (let i = 0; i < balls.length; i++) {
       const b = balls[i];
@@ -452,33 +391,28 @@
       let vx = dx * invDt;
       let vy = dy * invDt;
 
-      if (b.contacts > 0) vx *= FRICTION;   // 接触时的切向摩擦
+      if (b.contacts > 0) vx *= FRICTION;
       if (b.sq > 0) b.sq = Math.max(0, b.sq - b.sq * SQUASH_DECAY * dt);
 
       b.vx = vx;
       b.vy = vy;
-      b.angle += dx / b.r * 0.85;           // 视觉滚动
+      b.angle += dx / b.r * 0.85;
 
       if (!b.landed) {
         if (b.contacts > 0 || performance.now() - b.bornAt > 900) b.landed = true;
       }
     }
 
-    /* --- 弹性冲量 ---
-       位置约束已经把法向速度吃掉了一部分，这里直接把法向相对速度“改写”成
-       e × 碰撞前速度，这样回弹量只由 e 决定，不受子步/迭代次数影响。
-       撞击速度低于阈值时完全不弹，保证堆叠静止时不抖。 */
     for (let k = 0; k < contacts.length; k++) {
       const ct = contacts[k];
 
       if (ct.ball) {
-        /* 撞墙 / 撞地面 */
         const b = ct.ball;
         if (b.dead) continue;
-        const vnPre = b.pvx * ct.nx + b.pvy * ct.ny;      // <0 表示还在往墙里钻
+        const vnPre = b.pvx * ct.nx + b.pvy * ct.ny;
         if (vnPre < -REST_THRESHOLD) {
           const vnPost = b.vx * ct.nx + b.vy * ct.ny;
-          const target = -WALL_RESTITUTION * vnPre;       // 期望的分离速度
+          const target = -WALL_RESTITUTION * vnPre;
           const j = target - vnPost;
           if (j > 0) {
             b.vx += j * ct.nx;
@@ -487,11 +421,10 @@
           }
         }
       } else {
-        /* 球与球 */
         const a = ct.a, b = ct.b;
         if (a.dead || b.dead) continue;
-        const nx = ct.nx, ny = ct.ny;                     // a → b
-        const vnPre = (a.pvx - b.pvx) * nx + (a.pvy - b.pvy) * ny;   // >0 表示相互靠近
+        const nx = ct.nx, ny = ct.ny;
+        const vnPre = (a.pvx - b.pvx) * nx + (a.pvy - b.pvy) * ny;
         if (vnPre > REST_THRESHOLD) {
           const vnPost = (a.vx - b.vx) * nx + (a.vy - b.vy) * ny;
           const target = -RESTITUTION * vnPre;
@@ -506,11 +439,9 @@
       }
     }
 
-    /* --- 处理合成 --- */
     if (merges.length) processMerges(merges);
   }
 
-  /* 撞击挤压：沿撞击法线压扁、垂直方向拉伸，做出果冻感 */
   function squash(b, nx, ny, speed) {
     const k = Math.min(SQUASH_MAX, speed / 1500);
     if (k <= b.sq) return;
@@ -527,17 +458,14 @@
       const tier = a.tier;
 
       if (tier >= MAX_TIER) {
-        /* 两只神奶蛙 → 一起炸掉，拿一大笔奖励分（外加一枚复活币）。
-           注意：它同时清掉了两块最大的水果，是后期唯一的泄压阀，不能取消。
-           分数的飘字不用 addScore 那个普通的，下面单独给了「大字 +500」。 */
         addScore(MAX_BONUS);
         burst(mx, my, MAX_TIER, 90, 560);
         burst(mx, my, MAX_TIER - 2, 42, 340);
         Sound.bonus();
         haptic(70);
-        state.flash = 1.4;                    // 比普通合成更亮的全屏闪
-        state.freeze = FREEZE_MS / 1000;      // 定格一下，让这一下有重量
-        state.floats.push({ x: mx, y: my - 74, text: '两个神奶蛙 💥', life: 1.6 });
+        state.flash = 1.4;
+        state.freeze = FREEZE_MS / 1000;
+        state.floats.push({ x: mx, y: my - 74, text: '兩個傑尼龜 💥', life: 1.6 });
         state.floats.push({ x: mx, y: my - 16, text: '+' + MAX_BONUS, life: 2.2, big: true });
         if (MAX_MERGE_GIVES_REVIVE) {
           state.revives++;
@@ -546,7 +474,6 @@
       } else {
         const nt = tier + 1;
         const nb = makeBall(mx, my, nt, (a.vx + b.vx) * 0.5, (a.vy + b.vy) * 0.5 - 60);
-        /* 贴着墙合成时，新水果更大，先夹回场地内，避免瞬间穿墙 */
         nb.x = clamp(nb.x, WALL + nb.r, W - WALL - nb.r);
         nb.y = Math.min(nb.y, H - WALL - nb.r);
         nb.px = nb.x;
@@ -563,17 +490,12 @@
       }
     }
 
-    /* 移除被合成的球 */
     const alive = [];
     for (let i = 0; i < state.balls.length; i++) {
       if (!state.balls[i].dead) alive.push(state.balls[i]);
     }
     state.balls = alive;
   }
-
-  /* ---------------------------------------------------------
-   *  特效 & 计分
-   * ------------------------------------------------------- */
 
   function burst(x, y, tier, n, speed) {
     const f = FRUITS[Math.min(tier, MAX_TIER)];
@@ -595,8 +517,6 @@
     if (state.particles.length > 420) state.particles.splice(0, state.particles.length - 420);
   }
 
-  /* 复活币胶囊：有币才显示，跨过 2000 分时弹一下。
-     注意 0 枚时也要把文字刷成 ×0 —— 否则下次显示出来的是上一次的旧数字。 */
   function paintRevives(pop) {
     if (!reviveBadge) return;
     if (reviveCountEl) reviveCountEl.textContent = '×' + state.revives;
@@ -613,7 +533,6 @@
     }
   }
 
-  /* 每累计 REVIVE_STEP 分，发一枚复活币 */
   function grantRevives() {
     let got = 0;
     while (state.reviveGiven < Math.floor(state.score / REVIVE_STEP)) {
@@ -648,12 +567,8 @@
     el.classList.add('bump');
   }
 
-  /* ---------------------------------------------------------
-   *  投放 & 控制
-   * ------------------------------------------------------- */
-
   function aimLimit(tier) {
-    const r = FRUITS[tier].r * shapeOf(tier).rb;   // 用碰撞外形而不是圆形
+    const r = FRUITS[tier].r * shapeOf(tier).rb;
     return [WALL + r + 0.5, W - WALL - r - 0.5];
   }
 
@@ -674,15 +589,11 @@
     state.ready = false;
     state.cooldown = DROP_MS / 1000;
     state.pending = state.next;
-    state.next = pickSpawnTier(state.pending);   // 和当前这颗不一样
+    state.next = pickSpawnTier(state.pending);
     Sound.drop();
     drawNext();
     if (state.balls.length > 90) state.balls = state.balls.filter(b => !b.dead);
   }
-
-  /* ---------------------------------------------------------
-   *  判负
-   * ------------------------------------------------------- */
 
   function checkGameOver(dt) {
     let danger = false;
@@ -692,9 +603,7 @@
       const top = b.y - b.r;
 
       if (top < DANGER_Y) {
-        danger = true;                     // 只要线上方有东西，虚线就闪红
-        /* 只有「卡在线上方且基本停住」才计时：
-           被弹起来、正在飞过线的不算，免得误判 */
+        danger = true;
         if (b.vx * b.vx + b.vy * b.vy < REST_SPEED2) {
           b.overTime += dt;
           if (b.overTime > OVER_LIMIT) { gameOver(); return; }
@@ -702,7 +611,6 @@
           b.overTime = Math.max(0, b.overTime - dt * 2);
         }
       } else {
-        /* 回到线下方 → 按 2 倍速倒扣，所以长时间待在线上方才会攒起来 */
         b.overTime = Math.max(0, b.overTime - dt * 2);
         if (b.overTime > 0) danger = true;
       }
@@ -710,18 +618,15 @@
     state.danger = danger;
   }
 
-  /* 正式结算：弹结算窗 + 把成绩交给排行榜 */
   function settle() {
     if (revivePromptEl) revivePromptEl.hidden = true;
     if (overPanelEl) overPanelEl.hidden = false;
     if (overlayEl) overlayEl.classList.add('show');
-    /* 交给排行榜模块（没加载也不影响） */
     if (window.DanaiwaBoard && window.DanaiwaBoard.onGameOver) {
       window.DanaiwaBoard.onGameOver(state.score);
     }
   }
 
-  /* 越线那一屏：有复活币就先问一句 */
   function askRevive() {
     if (reviveScoreEl) reviveScoreEl.textContent = state.score;
     if (reviveLeftEl) reviveLeftEl.textContent = '还剩 ' + state.revives + ' 枚';
@@ -739,12 +644,9 @@
     settle();
   }
 
-  /* 复活：消除最顶上那颗，再把仍压在警戒线以上的清掉（只清一颗的话会立刻再输），
-     然后接着玩。返回 false 表示当前不能复活。 */
   function revive() {
     if (!state.over || state.revives <= 0) return false;
 
-    /* 1) 找最顶上的：按「上边缘」比，最小的最靠上 */
     let top = -1;
     let topEdge = Infinity;
     for (let i = 0; i < state.balls.length; i++) {
@@ -755,10 +657,8 @@
     }
     if (top >= 0) state.balls.splice(top, 1);
 
-    /* 2) 还压在警戒线以上的，一并清掉 */
     state.balls = state.balls.filter((b) => !b.dead && (b.y - b.r) >= DANGER_Y + 6);
 
-    /* 越线计时清零，给玩家一个反应窗口 */
     for (let i = 0; i < state.balls.length; i++) state.balls[i].overTime = 0;
 
     state.revives--;
@@ -766,7 +666,7 @@
     state.danger = false;
     state.ready = true;
     state.cooldown = 0;
-    state.flash = 0.6;               // 闪一下，让玩家知道救回来了
+    state.flash = 0.6;
     if (revivePromptEl) revivePromptEl.hidden = true;
     if (overlayEl) overlayEl.classList.remove('show');
     paintRevives(false);
@@ -785,7 +685,7 @@
     state.flash = 0;
     state.danger = false;
     state.aimX = W / 2;
-    state.revives = 0;        // 复活币只在本局有效，重开清零
+    state.revives = 0;
     state.reviveGiven = 0;
     state.freeze = 0;
     state.pending = pickSpawnTier();
@@ -800,17 +700,12 @@
     Sound.ensure();
   }
 
-  /* ---------------------------------------------------------
-   *  绘制
-   * ------------------------------------------------------- */
-
   function drawFruit(c, x, y, r, tier, angle, scale, squashShape) {
     const f = FRUITS[tier];
     const s = scale === undefined ? 1 : scale;
 
     c.save();
     c.translate(x, y);
-    /* 撞击挤压：沿法线压扁、垂直拉伸（世界坐标，先于水果自身旋转） */
     if (squashShape && squashShape.k > 0.004) {
       c.rotate(squashShape.a);
       c.scale(1 - squashShape.k, 1 + squashShape.k * 0.85);
@@ -819,7 +714,6 @@
     if (s !== 1) c.scale(s, s);
     c.rotate(angle || 0);
 
-    /* —— 贴图模式：主体直接画 PNG，画布边长按 ASSET_FILL 换算，保证视觉大小 = 物理直径 —— */
     if (f.img) {
       const box = (r * 2) / ASSET_FILL;
       c.drawImage(f.img, -box / 2, -box / 2, box, box);
@@ -827,9 +721,6 @@
       return;
     }
 
-    /* —— 兜底一：贴图还没到位时，先画一张极模糊的同形状缩略图 ——
-       观感是「图正在慢慢变清晰」，而不是「图挂了」看到一堆卡通脸。
-       这张缩略图是内联的 data URL（assets/fruits/blur.js，约 8KB），不走网络。 */
     if (blurImg && blurCfg && blurCfg.cols > 0) {
       const idx = tier < blurCfg.cols ? tier : blurCfg.cols - 1;
       const box = (r * 2) / ASSET_FILL;
@@ -841,8 +732,6 @@
       return;
     }
 
-    /* —— 兜底二：连缩略图都没有（blur.js 被拦了）才画程序化的圆形水果 —— */
-    /* 主体 */
     const g = c.createRadialGradient(-r * 0.34, -r * 0.40, r * 0.12, 0, 0, r * 1.12);
     g.addColorStop(0, f.c1);
     g.addColorStop(1, f.c2);
@@ -851,7 +740,6 @@
     c.fillStyle = g;
     c.fill();
 
-    /* 半奶蛙 / 神奶蛙 的纹理 */
     if (tier === MAX_TIER) {
       c.save();
       c.beginPath();
@@ -878,20 +766,17 @@
       c.restore();
     }
 
-    /* 描边 */
     c.lineWidth = Math.max(1.4, r * 0.055);
     c.strokeStyle = f.line;
     c.beginPath();
     c.arc(0, 0, r - c.lineWidth * 0.5, 0, Math.PI * 2);
     c.stroke();
 
-    /* 高光 */
     c.beginPath();
     c.ellipse(-r * 0.34, -r * 0.40, r * 0.30, r * 0.19, -0.7, 0, Math.PI * 2);
     c.fillStyle = 'rgba(255,255,255,.55)';
     c.fill();
 
-    /* 表情 */
     if (r >= 20) {
       const eyeR = r * 0.135;
       const eyeX = r * 0.33;
@@ -925,24 +810,21 @@
   }
 
   function drawBoard() {
-    /* 背景 */
     const bg = ctx.createLinearGradient(0, 0, 0, H);
-    bg.addColorStop(0, '#fffaf0');
-    bg.addColorStop(0.55, '#fff2dc');
-    bg.addColorStop(1, '#ffe7c6');
+    bg.addColorStop(0, '#f7fdff');
+    bg.addColorStop(0.55, '#ebf9ff');
+    bg.addColorStop(1, '#dfeffc');
     ctx.fillStyle = bg;
     ctx.fillRect(0, 0, W, H);
 
-    /* 顶部投放区高光 */
     const top = ctx.createLinearGradient(0, 0, 0, 190);
     top.addColorStop(0, 'rgba(255,255,255,.85)');
     top.addColorStop(1, 'rgba(255,255,255,0)');
     ctx.fillStyle = top;
     ctx.fillRect(0, 0, W, 190);
 
-    /* 内壁阴影 */
     ctx.save();
-    ctx.strokeStyle = 'rgba(196,150,100,.35)';
+    ctx.strokeStyle = 'rgba(89, 163, 210, .35)';
     ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.moveTo(WALL, 0);
@@ -952,14 +834,13 @@
     ctx.stroke();
     ctx.restore();
 
-    /* 警戒线 */
     const danger = state.danger;
     ctx.save();
     ctx.setLineDash([9, 9]);
     ctx.lineWidth = 2;
     ctx.strokeStyle = danger
       ? 'rgba(255,72,72,' + (0.55 + 0.45 * Math.abs(Math.sin(performance.now() / 140))) + ')'
-      : 'rgba(226,152,120,.42)';
+      : 'rgba(74, 160, 214, .42)';
     ctx.beginPath();
     ctx.moveTo(WALL, DANGER_Y);
     ctx.lineTo(W - WALL, DANGER_Y);
@@ -976,10 +857,9 @@
       const b = sorted[i];
       if (b.dead) continue;
 
-      /* 地面投影 */
       ctx.save();
       ctx.globalAlpha = 0.16;
-      ctx.fillStyle = '#7a4a1e';
+      ctx.fillStyle = '#7a9ab0';
       ctx.beginPath();
       ctx.ellipse(b.x, H - WALL - 1, b.r * 0.86, Math.max(3, b.r * 0.17), 0, 0, Math.PI * 2);
       ctx.fill();
@@ -1005,12 +885,11 @@
     const bob = Math.sin(performance.now() / 320) * 2.5;
     const ready = state.ready;
 
-    /* 只有能投的时候才画落点辅助线 */
     if (ready) {
       ctx.save();
       ctx.setLineDash([5, 8]);
       ctx.lineWidth = 1.6;
-      ctx.strokeStyle = 'rgba(200,140,90,.45)';
+      ctx.strokeStyle = 'rgba(63,155,205,.45)';
       ctx.beginPath();
       ctx.moveTo(x, DROP_Y + r + 4);
       ctx.lineTo(x, H - WALL);
@@ -1026,8 +905,6 @@
       ctx.restore();
     }
 
-    /* 冷却中也要画：淡一点表示“下一颗就是它、但还不能投”。
-       不然这段时间棋盘上只剩右上角的“下一个”，很容易被当成当前这颗 */
     ctx.save();
     if (!ready) ctx.globalAlpha = 0.4;
     drawFruit(ctx, x, DROP_Y + bob, r, tier, 0, 1);
@@ -1035,7 +912,6 @@
   }
 
   function drawEffects(dt) {
-    /* 粒子 */
     for (let i = state.particles.length - 1; i >= 0; i--) {
       const p = state.particles[i];
       p.vy += 1400 * dt;
@@ -1052,7 +928,6 @@
     }
     ctx.globalAlpha = 1;
 
-    /* 飘分 */
     ctx.textAlign = 'center';
     for (let i = state.floats.length - 1; i >= 0; i--) {
       const f = state.floats[i];
@@ -1067,17 +942,14 @@
       ctx.lineWidth = big ? 9 : 4;
       ctx.strokeStyle = 'rgba(255,255,255,.95)';
       ctx.strokeText(f.text, f.x, f.y);
-      ctx.fillStyle = big ? '#e8342f' : '#f4623a';
+      ctx.fillStyle = big ? '#2b9ad6' : '#4bb0e9';
       ctx.fillText(f.text, f.x, f.y);
     }
     ctx.globalAlpha = 1;
-
-    /* 顶棚下一颗预览 */
     drawTopPreview();
   }
 
   function drawTopPreview() {
-    /* 棋盘右上角永远显示「下一个」——当前那颗在准星位置上画着，别搞混 */
     const tier = state.next;
     const r = 15;
     const x = W - WALL - 30;
@@ -1095,7 +967,6 @@
     drawFruit(ctx, x, y, r, tier, 0, 1);
   }
 
-  /* 面板中的“下一个” */
   function drawNext() {
     const w = nextCanvas.width;
     const h = nextCanvas.height;
@@ -1107,7 +978,6 @@
     drawFruit(nextCtx, w / 2, h / 2, r * k, tier, 0, 1);
   }
 
-  /* 面板中的“合成表” */
   function drawChain() {
     const cw = chainCanvas.width;
     const ch = chainCanvas.height;
@@ -1124,7 +994,7 @@
       if (i < FRUITS.length - 1) {
         chainCtx.save();
         chainCtx.globalAlpha = 0.45;
-        chainCtx.fillStyle = '#b08a68';
+        chainCtx.fillStyle = '#6d91ab';
         chainCtx.font = '600 ' + Math.round(ch * 0.2) + 'px system-ui, sans-serif';
         chainCtx.textAlign = 'center';
         chainCtx.textBaseline = 'middle';
@@ -1134,10 +1004,6 @@
     }
   }
 
-  /* ---------------------------------------------------------
-   *  主循环
-   * ------------------------------------------------------- */
-
   let last = performance.now();
   let acc = 0;
   const FIXED = 1 / 60;
@@ -1145,7 +1011,7 @@
   function frame(now) {
     let dt = (now - last) / 1000;
     last = now;
-    if (dt > 0.25) dt = 0.25;      // 切后台回来不要瞬移
+    if (dt > 0.25) dt = 0.25;
     acc += dt;
 
     let guard = 0;
@@ -1161,17 +1027,14 @@
   }
 
   function update(dt) {
-    /* 清场命中定格：世界停一下，但画面照常重绘 */
     if (state.freeze > 0) { state.freeze = Math.max(0, state.freeze - dt); return; }
-
-    if (state.over) return;          // 结束后冻结棋盘（粒子特效仍在 render 里继续）
+    if (state.over) return;
 
     if (!state.ready) {
       state.cooldown -= dt;
       if (state.cooldown <= 0) state.ready = true;
     }
 
-    /* 物理：子步细分，保证小水果不被穿透 */
     const sub = dt / SUBSTEPS;
     for (let s = 0; s < SUBSTEPS; s++) stepPhysics(sub);
 
@@ -1186,7 +1049,6 @@
     drawBoard();
     drawBalls();
     drawAim();
-    /* 定格期间把特效的 dt 也压成 0，让它跟世界一起停住 */
     drawEffects(state.freeze > 0 ? 0 : dt);
 
     if (state.flash > 0) {
@@ -1198,17 +1060,11 @@
     }
   }
 
-  /* ---------------------------------------------------------
-   *  输入
-   * ------------------------------------------------------- */
-
   function pointerToX(clientX) {
     const rect = canvas.getBoundingClientRect();
     return (clientX - rect.left) * (W / rect.width);
   }
 
-  /* 触屏是「拖动瞄准、松手投放」——手指不会挡住落点，也方便微调；
-     鼠标保持「移动瞄准、按下即投」的桌面手感。 */
   let touchAiming = false;
 
   stage.addEventListener('pointermove', (e) => {
@@ -1223,9 +1079,8 @@
     moveAim(pointerToX(e.clientX));
     if (e.pointerType === 'touch') {
       touchAiming = true;
-      /* 手指滑出棋盘也能收到 pointerup */
       if (stage.setPointerCapture) {
-        try { stage.setPointerCapture(e.pointerId); } catch (err) { /* 忽略 */ }
+        try { stage.setPointerCapture(e.pointerId); } catch (err) { }
       }
     } else {
       tryDrop();
@@ -1242,10 +1097,8 @@
   });
 
   stage.addEventListener('pointercancel', () => { touchAiming = false; });
-
   stage.addEventListener('contextmenu', (e) => e.preventDefault());
 
-  /* 在输入框里打字时不要抢按键 */
   function isTyping(e) {
     const t = e.target;
     if (!t) return false;
@@ -1263,7 +1116,6 @@
       state.aimX = clamp(state.aimX + 14, WALL, W);
       e.preventDefault();
     } else if (e.code === 'Space' || e.code === 'Enter' || e.code === 'ArrowDown') {
-      /* 空格/回车只在局内投放；结束后不再用它们重开（免得手快连着开新局） */
       if (!state.over) { tryDrop(); e.preventDefault(); }
     } else if (e.code === 'KeyR') {
       reset();
@@ -1271,7 +1123,6 @@
     }
   });
 
-  /* 音效按钮里是 <span class="ico"> + <span class="lbl">，只改这两块文字 */
   function paintSoundBtn() {
     const ico = soundBtn.querySelector('.ico');
     const lbl = soundBtn.querySelector('.lbl');
@@ -1290,18 +1141,7 @@
   resetBtn.addEventListener('click', reset);
   restartBtn.addEventListener('click', reset);
 
-  /* ---------------------------------------------------------
-   *  素材加载
-   * ------------------------------------------------------- */
-
-  /* 贴图加载。三点很重要：
-       1) 弱网下「一次没拉到」很常见，**不重试**的话玩家会一直看到兜底的程序化水果
-          （一堆卡通脸），观感就是"图挂了"，所以失败要退避重试；
-       2) 必须等 decode() 完成再拿去 drawImage，否则浏览器会画出还没解码完的半成品；
-       3) 全部失败也不影响玩，只是回退成程序化水果。 */
-  const SPRITE_RETRY = 3;      // 每个素材最多试几次
-
-  let blurImg = null;          // 极模糊占位图（内联 data URL，秒到）
+  let blurImg = null;
   const blurCfg = window.FRUIT_BLUR || null;
 
   function loadBlur() {
@@ -1325,8 +1165,7 @@
         else ready();
       };
       img.onerror = () => {
-        if (attempt < SPRITE_RETRY) {
-          /* 退避 + 抖动，避免一批图同时重试又同时失败 */
+        if (attempt < 3) {
           const wait = 600 * Math.pow(2.4, attempt - 1) + Math.random() * 300;
           setTimeout(() => fetchOne(f, attempt + 1), wait);
           return;
@@ -1335,7 +1174,6 @@
         if (window.console) console.warn('[danaiwa] 素材载入失败，已回退为程序化水果：' + f.file);
         if (left === 0) refreshPreviews();
       };
-      /* 重试时换一个带参地址，绕开浏览器对上次失败结果的缓存 */
       img.src = attempt > 1 ? (f.file + '?retry=' + attempt) : f.file;
     }
 
@@ -1353,10 +1191,6 @@
     drawChain();
   }
 
-  /* ---------------------------------------------------------
-   *  启动
-   * ------------------------------------------------------- */
-
   function boot() {
     resizeCanvas();
     if (window.ResizeObserver) {
@@ -1366,15 +1200,13 @@
     window.addEventListener('orientationchange', () => setTimeout(resizeCanvas, 120));
 
     paintSoundBtn();
-
-    /* 越线那一屏的两个按钮 */
     if (reviveBtn) reviveBtn.addEventListener('click', revive);
     if (giveUpBtn) giveUpBtn.addEventListener('click', settle);
 
     drawChain();
     reset();
-    loadBlur();             // 占位图是内联的，几乎立刻可用
-    loadSprites();          // 贴图异步到位，到了会自动重画预览
+    loadBlur();
+    loadSprites();
     requestAnimationFrame((t) => { last = t; requestAnimationFrame(frame); });
   }
 
@@ -1384,7 +1216,6 @@
     boot();
   }
 
-  /* 调试句柄（控制台可用）：__DNW__.state / .reset() / .drop() / .FRUITS / .render() */
   window.__DNW__ = { state, reset, revive, settle, gameOver, tryDrop, stepPhysics, update, FRUITS,
                      render, resizeCanvas, shapeOf, makeBall, paintRevives, addScore,
                      MAX_BONUS, REVIVE_STEP,
