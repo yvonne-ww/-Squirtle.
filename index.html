@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-Hant">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="傑尼龜合成">
-<meta name="description" content="傑尼龜合成 · 纯前端小游戏：拖动瞄准、松手投放，相同的撞在一起合成更大的一只。">
+<meta name="description" content="傑尼龜合成 · 純前端遊戲：拖動瞄準、放開投放，相同的撞在一起合成更大的一隻。">
 <title>傑尼龜合成</title>
 <link rel="stylesheet" href="style.css">
 </head>
@@ -16,9 +16,9 @@
 
 <main class="app">
 
-  <!-- ===== 游戏区 ===== -->
+  <!-- ===== 遊戲區 ===== -->
   <section class="stage" id="stage">
-    <canvas id="game" aria-label="傑尼龜合成游戏区域"></canvas>
+    <canvas id="game" aria-label="傑尼龜合成遊戲區域"></canvas>
 
     <div class="revive-chip" id="reviveBadge" hidden>
       <span class="revive-chip-ico" aria-hidden="true">🪙</span><span id="reviveCount">×0</span>
@@ -29,42 +29,42 @@
 
         <div class="revive-ask" id="revivePrompt" hidden>
           <div class="dialog-emoji">😵</div>
-          <h2>还能再救一下</h2>
+          <h2>還能再救一下</h2>
           <p class="dialog-score">本局得分 <strong id="reviveScore">0</strong></p>
-          <p class="revive-hint">清掉警戒线以上的水果，接着玩</p>
+          <p class="revive-hint">清掉警戒線以上的水果，接著玩</p>
           <div class="dialog-actions">
-            <button class="btn" id="giveUpBtn" type="button">不了，结束吧</button>
-            <button class="btn btn-revive" id="reviveBtn" type="button">🪙 用一枚复活币</button>
+            <button class="btn" id="giveUpBtn" type="button">不了，結束吧</button>
+            <button class="btn btn-revive" id="reviveBtn" type="button">🪙 用一枚復活幣</button>
           </div>
-          <p class="dialog-hint" id="reviveLeft">还剩 1 枚</p>
+          <p class="dialog-hint" id="reviveLeft">還剩 1 枚</p>
         </div>
 
         <div id="overPanel">
           <div class="dialog-emoji">🌊</div>
-          <h2 id="overTitle">游戏结束</h2>
+          <h2 id="overTitle">遊戲結束</h2>
           <p class="dialog-score">本局得分 <strong id="finalScore">0</strong></p>
           <p class="dialog-best">最高分 <span id="finalBest">0</span></p>
 
           <div class="submit-box" id="submitBox">
-            <p class="submit-msg" id="submitMsg">正在结算…</p>
-            <p class="my-name">昵称：<strong id="myNameLabel">默认用户</strong>
-              <button class="link-btn" id="editNameBtn" type="button">改昵称</button>
+            <p class="submit-msg" id="submitMsg">正在結算…</p>
+            <p class="my-name">暱稱：<strong id="myNameLabel">預設使用者</strong>
+              <button class="link-btn" id="editNameBtn" type="button">改暱稱</button>
             </p>
-            <button class="btn" id="submitBtn" type="button" hidden>重试提交</button>
+            <button class="btn" id="submitBtn" type="button" hidden>重試提交</button>
           </div>
 
           <div class="dialog-actions">
             <button class="btn" id="boardBtn2" type="button">🏆 排行榜</button>
-            <button class="btn btn-primary" id="restartBtn" type="button">再来一局</button>
+            <button class="btn btn-primary" id="restartBtn" type="button">再來一局</button>
           </div>
-          <p class="dialog-hint">按 R 键也可重新开始</p>
+          <p class="dialog-hint">按 R 鍵也可重新開始</p>
         </div>
 
       </div>
     </div>
   </section>
 
-  <!-- ===== 侧边面板 ===== -->
+  <!-- ===== 側邊面板 ===== -->
   <aside class="panel">
 
     <header class="panel-head">
@@ -74,7 +74,7 @@
 
     <div class="stats">
       <div class="stat">
-        <span class="stat-label">分数</span>
+        <span class="stat-label">分數</span>
         <strong class="stat-value" id="score">0</strong>
       </div>
       <div class="stat">
@@ -84,14 +84,14 @@
     </div>
 
     <div class="next-box">
-      <span class="box-label">下一个</span>
-      <canvas id="next" width="160" height="160" aria-label="下一个"></canvas>
+      <span class="box-label">下一個</span>
+      <canvas id="next" width="160" height="160" aria-label="下一個"></canvas>
     </div>
 
     <div class="chain-box">
       <span class="box-label">合成表</span>
-      <canvas id="chain" width="680" height="112" aria-label="合成顺序"></canvas>
-      <p class="chain-note">✨ 两个傑尼龜撞在一起会一起炸掉，换 <strong>500 分</strong> + <strong>一枚复活币</strong></p>
+      <canvas id="chain" width="680" height="112" aria-label="合成順序"></canvas>
+      <p class="chain-note">✨ 兩個傑尼龜撞在一起會一起炸掉，換 <strong>500 分</strong> + <strong>一枚復活幣</strong></p>
     </div>
 
     <div class="actions">
@@ -99,39 +99,39 @@
         <span class="ico">🏆</span><span class="lbl">排行榜</span>
       </button>
       <button class="btn" id="soundBtn" type="button" aria-pressed="true">
-        <span class="ico">🔊</span><span class="lbl">音效开</span>
+        <span class="ico">🔊</span><span class="lbl">音效開</span>
       </button>
-      <button class="btn btn-primary" id="resetBtn" type="button" title="重新开始">
-        <span class="ico">↻</span><span class="lbl">重开</span>
+      <button class="btn btn-primary" id="resetBtn" type="button" title="重新開始">
+        <span class="ico">↻</span><span class="lbl">重開</span>
       </button>
     </div>
 
     <p class="tips">
-      鼠标：移动瞄准、点击投放；触屏：拖动瞄准、松手投放。<br>
-      ← → 微调位置，空格投放，R 重开。<br>
-      每 <strong>1000 分</strong>攒一枚<strong>复活币</strong>，只在本局有效。
+      滑鼠：移動瞄準、點擊投放；觸屏：拖動瞄準、放開投放。<br>
+      ← → 微調位置，空白鍵投放，R 重開。<br>
+      每 <strong>500 分</strong>攢一枚<strong>復活幣</strong>，僅在本局有效。
     </p>
 
   </aside>
 
 </main>
 
-<!-- ===== 排行榜弹窗 ===== -->
+<!-- ===== 排行榜彈窗 ===== -->
 <div class="modal" id="boardModal" aria-hidden="true" role="dialog" aria-label="排行榜">
   <div class="modal-card">
     <header class="modal-head">
       <h2>🏆 最近高手榜</h2>
-      <button class="icon-btn" id="boardClose" type="button" aria-label="关闭">✕</button>
+      <button class="icon-btn" id="boardClose" type="button" aria-label="關閉">✕</button>
     </header>
     <div class="nick-row">
-      <label class="nick-label" for="nickInput">我的昵称</label>
+      <label class="nick-label" for="nickInput">我的暱稱</label>
       <input class="nick-input" id="nickInput" type="text" maxlength="12"
-             placeholder="默认用户" autocomplete="nickname" enterkeyhint="done">
+             placeholder="預設使用者" autocomplete="nickname" enterkeyhint="done">
     </div>
     <div class="board-list" id="boardList"></div>
     <footer class="modal-foot">
-      <span class="board-note">只取最近 20 次提交，成绩会被后来的人挤下去</span>
-      <button class="btn" id="boardRefresh" type="button">刷新</button>
+      <span class="board-note">只取最近 20 次提交，成績會被之後的人擠下去</span>
+      <button class="btn" id="boardRefresh" type="button">重新整理</button>
     </footer>
   </div>
 </div>
