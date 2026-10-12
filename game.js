@@ -2,7 +2,7 @@
     const now = performance.now();
     const balls = state.balls;
     const sorted = balls.slice().sort((a, b) => {
-      if (a.y !== b.y) return a.y - b.y;
+      if (Math.abs(a.y - b.y) > 0.001) return a.y - b.y;
       return b.r - a.r;
     });
 
