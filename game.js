@@ -335,7 +335,7 @@
 
           if (minGap > MERGE_PAD || minGap === 1e9) continue;
 
-          if (a.tier === b.tier && it === 0) {
+          if (a.tier === b.tier) {
             a.dead = true;
             b.dead = true;
             merges.push([a, b]);
